@@ -6,20 +6,40 @@
 using namespace std;
 
 void print_matrix(int matrix[9][9]);
+bool simple_test(int matrix[9][9]);
 
 int main() {
 
     int matrix[9][9];
-    int sub_x;
-    int sub_y;
-    bool zero_flag = 0;
     // Input sudoku puzzle here...blanks will be represented by some symbol other than 1-9
     ifstream infile("example.txt");
     for(int i=0; i<9; i++)
         for (int j=0; j<9; j++)
             infile >> matrix[i][j];
-    cout << "Original: " << endl << endl;
+	simple_test(matrix);
+    return 0;
+
+}
+
+void print_matrix(int matrix[9][9]) {
+    for(int i=0; i<9; i++) {
+        for(int j=0; j<9; j++) {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+bool simple_test (int matrix[9][9]) {
+    cout << "Input: " << endl;
     print_matrix(matrix);
+
+    cout << "\nRunning simple_test..." << endl;
+    int sub_x;
+    int sub_y;
+    bool zero_flag = 0;
+    int zero_count = 0;
+
     do {
         zero_flag=0; // reset flag
         for(int i=0; i<9; i++) {
@@ -35,7 +55,6 @@ int main() {
                         }
                         if (v.size() == 1) {
                             matrix[i][j] = v[0];
-                            cout << "Hit" << endl;
                             goto end;
                         }
                     }
@@ -45,7 +64,6 @@ int main() {
                         }
                         if(v.size() == 1) {
                             matrix[i][j] = v[0];
-                            cout << "Hit" << endl;
                             goto end;
                         }
                     }
@@ -56,29 +74,26 @@ int main() {
                             }
                             if(v.size() == 1) {
                                 matrix[i][j] = v[0];
-                                cout << "Hit" << endl;
                                 goto end;
                             }
                         }
                     }
+                    zero_count++;
+                    if(zero_count == 81){
+                        return 0;
+                        cout << "Simple test FAIL\n" << endl;
+                        cout << "Output: " << endl;
+                        print_matrix(matrix);
+                    }
                 }
 end:
+                zero_count = 0;
                 ;
             }
         }
     } while(zero_flag);
-    cout << "\nSolution: " << endl << endl;
+    cout << "Simple test PASS\n" << endl;
+    cout << "Solution: " << endl;
     print_matrix(matrix);
-
-    return 0;
-
-}
-
-void print_matrix(int matrix[9][9]) {
-    for(int i=0; i<9; i++) {
-        for(int j=0; j<9; j++) {
-            cout << matrix[i][j] << " ";
-        }
-        cout << endl;
-    }
+    return 1;
 }
