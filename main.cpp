@@ -1,99 +1,172 @@
+/* 
+ * File:   main.cpp
+ * Author: max
+ *
+ * Created on September 19, 2018, 9:56 PM
+ */
+
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
-#include <algorithm> // remove and remove_if
-#include <vector> // the general-purpose vector container
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
-void print_matrix(int matrix[9][9]);
-bool simple_test(int matrix[9][9]);
+typedef vector<int> vec;
+typedef vector< vector<int> > d_vec;
+
+void copyV(d_vec v1, d_vec& v2); // v2 becomes copy of v1
+void printV(d_vec v, bool pass);
+void eraseVal(vec& v, int n);
+void simpleTest(d_vec& v);
+bool test(d_vec v);
 
 int main() {
 
-    int matrix[9][9];
-    // Input sudoku puzzle here...blanks will be represented by some symbol other than 1-9
-    ifstream infile("example.txt");
-    for(int i=0; i<9; i++)
-        for (int j=0; j<9; j++)
-            infile >> matrix[i][j];
-	simple_test(matrix);
-    return 0;
+    // Initialize array (vector)
+    d_vec puzzle(9, vector<int> (9, 0)); // Initialize with 0's
+    d_vec temp(9, vector<int> (9, 0)); // Initialize a temp for testing purposes
+    //d_vec solution(9, vector<int> (9, 0)); // Our solution matrix
 
+    ifstream infile("easy.txt");
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            infile >> puzzle[i][j];
+        }
+    }
+
+    copyV(puzzle, temp);
+    simpleTest(temp);
+    bool test0 = test(temp);
+    printV(temp, test0);
+    
+    return 0;
 }
 
-void print_matrix(int matrix[9][9]) {
-    for(int i=0; i<9; i++) {
-        for(int j=0; j<9; j++) {
-            cout << matrix[i][j] << " ";
+// Takes v1 and copies contents to v2
+
+void copyV(d_vec v1, d_vec& v2) {
+    if (v1.size() != v2.size()) { // error
+        cout << "Vectors not the same size. Cannot write." << endl;
+        return;
+    }
+    for (int i = 0; i < v1.size(); i++) {
+        for (int j = 0; j < v1.size(); j++) {
+            v2[i][j] = v1[i][j];
+        }
+    }
+}
+
+void printV(d_vec v, bool pass) {
+    if (pass) {
+        cout << "Test PASS\n" << endl;
+        cout << "Solution: " << endl;
+    } else {
+        cout << "Test FAIL\n" << endl;
+        cout << "Output: " << endl;
+    }
+    
+    for (int i = 0; i < v.size(); i++) {
+        for (int j = 0; j < v.size(); j++) {
+            cout << v[i][j] << " ";
         }
         cout << endl;
     }
 }
 
-bool simple_test (int matrix[9][9]) {
-    cout << "Input: " << endl;
-    print_matrix(matrix);
+void eraseVal(vec& v, int n) {
+    v.erase(std::remove(v.begin(), v.end(), n), v.end());
+}
 
-    cout << "\nRunning simple_test..." << endl;
-    int sub_x;
-    int sub_y;
-    bool zero_flag = 0;
-    int zero_count = 0;
+void simpleTest(d_vec& v1) {
+    cout << "Running simple test..." << endl;
 
-    do {
-        zero_flag=0; // reset flag
-        for(int i=0; i<9; i++) {
-            for(int j=0; j<9; j++) {
-                vector <int> v = {1,2,3,4,5,6,7,8,9}; // for determing solution for matrix point
-                sub_x = j/3;
-                sub_y = i/3;
-                if(matrix[i][j] == 0) {
-                    zero_flag = 1; // set flag
-                    for(int m=0; m<9; m++) {
-                        if(matrix[i][m] != 0) {
-                            v.erase(remove( v.begin(), v.end(), matrix[i][m] ), v.end() );
-                        }
-                        if (v.size() == 1) {
-                            matrix[i][j] = v[0];
-                            goto end;
-                        }
-                    }
-                    for(int n=0; n<9; n++) {
-                        if(matrix[n][j] != 0) {
-                            v.erase(remove(v.begin(), v.end(), matrix[n][j]), v.end());
-                        }
-                        if(v.size() == 1) {
-                            matrix[i][j] = v[0];
-                            goto end;
-                        }
-                    }
-                    for (int y=sub_y*3; y<(sub_y*3)+3; y++) {
-                        for (int x=sub_x*3; x<(sub_x*3)+3; x++) {
-                            if(matrix[y][x] != 0) {
-                                v.erase(remove(v.begin(), v.end(), matrix[y][x]), v.end());
-                            }
-                            if(v.size() == 1) {
-                                matrix[i][j] = v[0];
-                                goto end;
-                            }
-                        }
-                    }
-                    zero_count++;
-                    if(zero_count == 81){
-                        return 0;
-                        cout << "Simple test FAIL\n" << endl;
-                        cout << "Output: " << endl;
-                        print_matrix(matrix);
+    vec testV(9);
+    int subX;
+    int subY;
+    int count1 = 0;
+    int count2 = 0;
+    bool flag = 0;
+
+    while (flag == 0) {
+        count1 = 0;
+        for (int i = 0; i < v1.size(); i++) {
+            for (int j = 0; j < v1.size(); j++) {
+                subX = i / 3;
+                subY = j / 3;
+                //cout << subX << " " << subY << endl;
+                if (v1[i][j] == 0) {
+                    count1++;
+                    //cout << count1 << " " << count2 << endl;
+                    testV = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+                    // Test vertical
+                    for (int ii = 0; ii < v1.size(); ii++)
+                        if (v1[ii][j] != 0)
+                            eraseVal(testV, v1[ii][j]);
+                    // Test horizontal
+                    for (int jj = 0; jj < v1.size(); jj++)
+                        if (v1[i][jj] != 0)
+                            eraseVal(testV, v1[i][jj]);
+                    // Test sub-matrix
+                    for (int ii = subX * 3; ii < subX * 3 + 3; ii++)
+                        for (int jj = subY * 3; jj < subY * 3 + 3; jj++)
+                            if (v1[ii][jj] != 0)
+                                eraseVal(testV, v1[ii][jj]);
+                    if (testV.size() == 1) {
+                        v1[i][j] = testV[0];
+                        goto end;
                     }
                 }
 end:
-                zero_count = 0;
                 ;
             }
         }
-    } while(zero_flag);
-    cout << "Simple test PASS\n" << endl;
-    cout << "Solution: " << endl;
-    print_matrix(matrix);
+        //cout << count1 << " " << count2 << endl;
+        if (count1 == count2)
+            flag = 1;
+        count2 = count1;
+    }
+}
+
+// Tests for solution
+
+bool test(d_vec v) {
+    int sum = 0;
+
+    // Test each row
+    for (int i = 0; i < v.size(); i++) {
+        sum = 0;
+        for (int j = 0; j < v.size(); j++) {
+            sum += v[i][j];
+        }
+        if (sum != 45)
+            return 0;
+    }
+
+    // Test each column
+    for (int i = 0; i < v.size(); i++) {
+        sum = 0;
+        for (int j = 0; j < v.size(); j++) {
+            sum += v[j][i];
+        }
+        if (sum != 45)
+            return 0;
+    }
+
+    // Test each sub-matrix
+    for (int subX = 0; subX < 2; subX++) {
+        for (int subY = 0; subY < 2; subY++) {
+            sum = 0;
+            for (int ii = subX * 3; ii < subX * 3 + 3; ii++) {
+                for (int jj = subY * 3; jj < subY * 3 + 3; jj++) {
+                    sum += v[ii][jj];
+                }
+            }
+            if (sum != 45)
+                return 0;
+        }
+    }
     return 1;
 }
