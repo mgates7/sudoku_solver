@@ -20,27 +20,46 @@ void copyV(d_vec v1, d_vec& v2); // v2 becomes copy of v1
 void printV(d_vec v, bool pass);
 void eraseVal(vec& v, int n);
 void simpleTest(d_vec& v);
-bool test(d_vec v);
+void test1(d_vec& v);
+bool solve(d_vec v);
 
 int main() {
 
     // Initialize array (vector)
     d_vec puzzle(9, vector<int> (9, 0)); // Initialize with 0's
     d_vec temp(9, vector<int> (9, 0)); // Initialize a temp for testing purposes
-    //d_vec solution(9, vector<int> (9, 0)); // Our solution matrix
+    bool pass = 0;
+    int testNum = 0;
 
-    ifstream infile("easy.txt");
+    // Read from text file
+    ifstream infile("medium.txt");
     for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
             infile >> puzzle[i][j];
         }
     }
 
-    copyV(puzzle, temp);
-    simpleTest(temp);
-    bool test0 = test(temp);
-    printV(temp, test0);
-    
+    while (~pass) {
+        copyV(puzzle, temp); // re-initialize temp
+        switch (testNum) {
+            case 0: // Simple test
+                cout << "\nRunning simple test..." << endl;
+                simpleTest(temp);
+                pass = solve(temp);
+                printV(temp, pass);
+            case 1:
+                cout << "\nRunning test1..." << endl;
+                test1(temp);
+                pass = solve(temp);
+                printV(temp, pass);
+            default:
+                return 0;
+        }
+        testNum++;
+    }
+
+
+
     return 0;
 }
 
@@ -66,7 +85,7 @@ void printV(d_vec v, bool pass) {
         cout << "Test FAIL\n" << endl;
         cout << "Output: " << endl;
     }
-    
+
     for (int i = 0; i < v.size(); i++) {
         for (int j = 0; j < v.size(); j++) {
             cout << v[i][j] << " ";
@@ -80,7 +99,6 @@ void eraseVal(vec& v, int n) {
 }
 
 void simpleTest(d_vec& v1) {
-    cout << "Running simple test..." << endl;
 
     vec testV(9);
     int subX;
@@ -130,9 +148,37 @@ end:
     }
 }
 
+// Brute force
+
+void test1(d_vec& v) {
+
+    vec testV(9);
+    testV = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    d_vec tempDV = v; // make copy
+    bool pass = 0;
+
+    for (int i = 0; i < v.size(); i++) {
+        for (int j = 0; j < v.size(); j++) {
+            if (v[i][j] == 0) {
+                v = tempDV;
+                for (int ii = 0; ii < 9; ii++) {
+                    v = tempDV;
+                    v[i][j] = testV[ii];
+                    simpleTest(v);
+                    pass = solve(v);
+                    if (pass)
+                        return;
+                }
+            }
+        }
+    }
+
+
+}
+
 // Tests for solution
 
-bool test(d_vec v) {
+bool solve(d_vec v) {
     int sum = 0;
 
     // Test each row
