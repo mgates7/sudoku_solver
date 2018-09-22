@@ -37,7 +37,7 @@ int main() {
     int testNum = 0;
 
     // Read from text file
-    ifstream infile("evil1.txt");
+    ifstream infile("inkala_test.txt");
     for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
             infile >> puzzle[i][j];
@@ -45,9 +45,10 @@ int main() {
     }
 
     while (~pass) {
-        copyV(puzzle, temp); // re-initialize temp
+        // re-initialize temp
         switch (testNum) {
             case 0: // Simple test
+                copyV(puzzle, temp);
                 cout << "\nRunning simple test..." << endl;
                 simpleTest(temp);
                 pass = solve(temp);
@@ -55,6 +56,7 @@ int main() {
                 if (pass)
                     return 0;
             case 1:
+                copyV(puzzle, temp);
                 cout << "\nRunning test1..." << endl;
                 test1(temp);
                 pass = solve(temp);
@@ -62,6 +64,7 @@ int main() {
                 if (pass)
                     return 0;
             case 2:
+                copyV(puzzle, temp);
                 cout << "\nRunning test2..." << endl;
                 test2(temp);
                 pass = solve(temp);
@@ -69,6 +72,7 @@ int main() {
                 if (pass)
                     return 0;
             case 3:
+                copyV(puzzle, temp);
                 cout << "\nRunning test3..." << endl;
                 test3(temp);
                 pass = solve(temp);
@@ -76,6 +80,7 @@ int main() {
                 if (pass)
                     return 0;
             case 4:
+                copyV(puzzle, temp);
                 cout << "\nRunning test4..." << endl;
                 test4(temp);
                 pass = solve(temp);
@@ -83,6 +88,7 @@ int main() {
                 if (pass)
                     return 0;
             case 5:
+                copyV(puzzle, temp);
                 cout << "\nRunning test5..." << endl;
                 test5(temp);
                 pass = solve(temp);
@@ -226,7 +232,6 @@ void test2(d_vec& v) {
         for (int j = i + 1; j < zeroPoints.size(); j++) {
             for (int ii = 0; ii < 9; ii++) {
                 for (int jj = 0; jj < 9; jj++) {
-                    //cout << i << j << endl;
                     *zeroPoints[i] = testV[ii];
                     *zeroPoints[j] = testV[jj];
                     copyV(v, tempDV);
@@ -263,10 +268,11 @@ void test3(d_vec& v) {
     for (int i = 0; i < zeroPoints.size(); i++) {
         for (int j = i + 1; j < zeroPoints.size(); j++) {
             for (int k = j + 1; k < zeroPoints.size(); k++) {
+                //cout << i << " " << j << " " << k << endl;
                 for (int ii = 0; ii < 9; ii++) {
                     for (int jj = 0; jj < 9; jj++) {
                         for (int kk = 0; kk < 9; kk++) {
-                            //cout << i << j << endl;
+                            
                             *zeroPoints[i] = testV[ii];
                             *zeroPoints[j] = testV[jj];
                             *zeroPoints[k] = testV[kk];
@@ -311,7 +317,7 @@ void test4(d_vec& v) {
                         for (int jj = 0; jj < 9; jj++) {
                             for (int kk = 0; kk < 9; kk++) {
                                 for (int ll = 0; ll < 9; ll++) {
-                                    //cout << i << j << endl;
+                                    
                                     *zeroPoints[i] = testV[ii];
                                     *zeroPoints[j] = testV[jj];
                                     *zeroPoints[k] = testV[kk];
@@ -362,7 +368,7 @@ void test5(d_vec& v) {
                                 for (int kk = 0; kk < 9; kk++) {
                                     for (int ll = 0; ll < 9; ll++) {
                                         for (int mm = 0; mm < 9; mm++) {
-                                            //cout << i << j << endl;
+                                           // cout << i << " " << j << " " << k << " " << l << " " << m << endl;
                                             *zeroPoints[i] = testV[ii];
                                             *zeroPoints[j] = testV[jj];
                                             *zeroPoints[k] = testV[kk];
