@@ -1,4 +1,16 @@
 # sudoku_solver
-This C++ program solves sudoku puzzles. All code is in main.cpp for now, and example inputs are shown as text files. 
+A C++ program that solves sudoku puzzles. Sample inputs are shown in the text files. User must manually type in file name in main.cpp for now.
 
-Hopefully someone finds this of use.
+
+CHANGES
+---------------------------------------------------------------------------------------------------------------------------
+9/22 - Should now be able to solve all puzzles, including the infamous Inkala test. Program needs to run overnight however.
+
+
+FUTURE ENHANCEMENTS
+---------------------------------------------------------------------------------------------------------------------------
+- Currently the program is slow for complex puzzles (e.g. Inkala test). I have several ideas to improve speed.
+- Be able to handle multiple user inputs.
+- Clean code to make it more readable.
+
+
