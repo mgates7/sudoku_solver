@@ -4,7 +4,7 @@ A C++ program that solves sudoku puzzles. Sample inputs are shown in the text fi
 
 CHANGES
 ---------------------------------------------------------------------------------------------------------------------------
-9/22 - Should now be able to solve all puzzles, including the infamous Inkala test. Program needs to run overnight however.
+9/22 - Should now be able to solve all puzzles, including the infamous Inkala test. Takes several hours for the Inkala test, however.
 
 
 FUTURE ENHANCEMENTS
