@@ -26,14 +26,13 @@ __device__ int d_isValid(const int blockId, const int threadIdX, const int threa
 This function's main purpose is to determine how many blocks and threads
 we will need in total.
  */
-__global__ void gpu_solveSudoku(int* d_puzzle, bool* bitmap, bool* empties)
+__global__ void bitmapSet(Puzzle d_puzzle)
 {
     const int tid = IMUL(blockDim.x, blockIdx.x) + IMUL(threadIdx.y, 9) + threadIdx.x; // Total thread
     const int b_tid = IMUL(threadIdx.y, 9) + threadIdx.x; // Thread within the block
     //const int threadN = IMUL(blockDim.x, gridDim.x);
 
-    int i, j, k;
-
+   
     /////////////
     // PHASE I //
     /////////////
@@ -41,30 +40,26 @@ __global__ void gpu_solveSudoku(int* d_puzzle, bool* bitmap, bool* empties)
     // Phase description: convert the puzzle to its associated bitmap so we
     // can store more puzzles in shared memory without losing information.
 
-    __shared__ bool d_bitmap[9][9][9];  // bitmap[blockIdx.x][threadIdx.y][threadIdx.x]
-    __shared__ bool d_empties[9][9][9]; // Location of empties (i.e. when d_puzzle == 0) , 1 = Empty, 0 = Not Empty
+    __shared__ bool bitmap[9][9][9];  // bitmap[blockIdx.x][threadIdx.y][threadIdx.x]
+    __shared__ bool empties[9][9][9]; // Location of empties (i.e. when d_puzzle == 0) , 1 = Empty, 0 = Not Empty
 
     if (d_puzzle[b_tid] == (blockIdx.x + 1))
     {
-        d_bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 1;
-        d_empties[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
+        bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 1;
+        empties[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
     }
     else if (d_puzzle[b_tid] == 0)
     {
-        d_bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
-        d_empties[blockIdx.x][threadIdx.y][threadIdx.x] = 1;
+        bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
+        empties[blockIdx.x][threadIdx.y][threadIdx.x] = 1;
     }
     else
     {
-        d_bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
-        d_empties[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
+        bitmap[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
+        empties[blockIdx.x][threadIdx.y][threadIdx.x] = 0;
     }
 
-    bitmap[tid] = d_bitmap[blockIdx.x][threadIdx.y][threadIdx.x];
-    empties[tid] = d_empties[blockIdx.x][threadIdx.y][threadIdx.x];
-    
-    
-    //__syncthreads(); // Wait for bitmaps to all be completed before starting Phase II
+    __syncthreads(); // Wait for bitmaps to all be completed before starting Phase II
 
     //////////////
     // PHASE II //

@@ -30,8 +30,16 @@
 
 // CPU & GPU Directives
 #define NUM_PUZZLES 1 // Number of h_puzzles to solve
-#define PUZZLE_SIZE 81
+#define N 9
 #define OPTIONS 2 // CPU & GPU
+
+// Sudoku specific
+typedef struct
+{
+    int *elements;
+    bool *bitmap;
+    bool *isempty;
+} Puzzle;
 
 #include "cpu_functions.cuh"
 #include "cuda_functions.cuh"
@@ -50,81 +58,60 @@ int main(int argc, char **argv)
 
     int OPTION;
 
-    // Host variables...I will be opening file and reading on host, then transfering to global memory on GPU
-    int h_puzzle[9][9];
-    char temp_ch;
+    // Initialize puzzles for host and device
+    Puzzle h_puzzle;
+    Puzzle d_puzzle;
+
     char *fileName;
-    FILE *sudokuFile;
-    int i, j, num;
+    int i, j, puzzleNum;
     int cpu_success[NUM_PUZZLES];
 
-    // bool *h_bitmap;
-
-    // GPU Variables
-    int *d_puzzle;
-    bool *bitmap;
-    bool *empties;
-
     fileName = "test.txt"; // Where the test h_puzzles will be.
-    sudokuFile = fopen(fileName, "r");
-
-    if (sudokuFile == NULL)
-    {
-        printf("Couldn't open test file for reading!");
-        return 1;
-    }
 
     OPTION = 0;
-    for (num = 0; num < NUM_PUZZLES; num++)
+    for (puzzleNum = 0; puzzleNum < NUM_PUZZLES; puzzleNum++)
     {
+        // Initialize host puzzle
+        initializePuzzle(puzzleNum, fileName, h_puzzle.elements);
+
+        //printPuzzle(h_puzzle);
+
         // Select GPU
         CUDA_SAFE_CALL(cudaSetDevice(0));
 
         // Allocate GPU memory
-        size_t allocSize_int = PUZZLE_SIZE * sizeof(int); // NUM_PUZZLES * PUZZLE_SIZE * sizeof(int)
-        size_t allocSize_bool = 9 * PUZZLE_SIZE * sizeof(bool);
-        CUDA_SAFE_CALL(cudaMalloc((void **)&d_puzzle, allocSize_int));
-        CUDA_SAFE_CALL(cudaMalloc((void **)&bitmap, allocSize_bool));
-        CUDA_SAFE_CALL(cudaMalloc((void **)&empties, allocSize_bool));
+        size_t allocSize = N * N * sizeof(int); // NUM_PUZZLES * PUZZLE_SIZE * sizeof(int)
+        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.elements, allocSize));
 
-        for (i = 0; i < 9; i++)
-        {
-            for (j = 0; j < 9; j++)
-            {
-                if ((j == 8) && (i == 8))
-                    fscanf(sudokuFile, "%c\n", &temp_ch);
-                else
-                    fscanf(sudokuFile, "%c", &temp_ch);
+        // Transfer the unsolved puzzle to GPU memory
+        CUDA_SAFE_CALL(cudaMemcpy(d_puzzle.elements, h_puzzle.elements, allocSize, cudaMemcpyHostToDevice));
 
-                h_puzzle[i][j] = atoi(&temp_ch);
-            }
-        }
-
-        // Transfer the puzzle to the GPU memory
-        CUDA_SAFE_CALL(cudaMemcpy(d_puzzle, h_puzzle, allocSize, cudaMemcpyHostToDevice));
-
-        printf("\nSolving Puzzle #%d (CPU)\n", num);
+        printf("\nSolving Puzzle #%d (CPU)\n", puzzleNum);
 
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
-        cpu_success[num] = cpu_solveSudoku(h_puzzle);
+        cpu_success[puzzleNum] = cpu_solveSudoku(h_puzzle.elements);
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
-        time_stamp[OPTION][num] = diff(time1, time2);
+        time_stamp[OPTION][puzzleNum] = diff(time1, time2);
+
+        //printPuzzle(d_puzzle);
 
         OPTION++;
         // Call CUDA Kernel
-        printf("Solving Puzzle #%d (GPU)\n\n", num);
+        printf("Solving Puzzle #%d (GPU)\n\n", puzzleNum);
 
-        // Set up thread/block hierarchy
+        // PHASE I thread/block hierarchy
         dim3 threadsPerBlock(9, 9); // 9x9 Puzzle
-        int numBlocks = 9;
+        dim3 blocksPerGrid(9);
 
         // Create the cuda events
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
-        // Record event on the default stream
+
+        // Record event and time on the default stream
         cudaEventRecord(start, 0);
 
-        gpu_solveSudoku<<<numBlocks, threadsPerBlock>>>(d_puzzle, bitmap, empties);
+        // Set bitmaps and isEmpty arrays
+        bitmapSet<<<blocksPerGrid, threadsPerBlock>>>(d_puzzle);
 
         cudaEventRecord(stop, 0);
 
@@ -139,38 +126,39 @@ int main(int argc, char **argv)
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&elapsed_gpu, start, stop);
         printf("\nGPU time: %f (nsec)\n", 1000000 * elapsed_gpu);
-        //time_stamp[OPTION][num] = (struct timespec)(1000000*elapsed_gpu);
+        //time_stamp[OPTION][puzzleNum] = (struct timespec)(1000000*elapsed_gpu);
         cudaEventDestroy(start);
         cudaEventDestroy(stop);
     }
 
-    // Close file and open again
+    // // Close file and open again
 
-    /* Output times */
-    printf("\n\nPuzzle #, CPU, GPU\n");
-    for (i = 0; i < NUM_PUZZLES; i++)
-    {
-        printf("\nPuzzle #%d, ", i);
-        for (j = 0; j < OPTIONS; j++)
-        {
-            if (j != 0)
-                printf(", ");
-            printf("%ld", (long int)((double)(GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
-        }
-    }
+    // /* Output times */
+    // printf("\n\nPuzzle #, CPU, GPU\n");
+    // for (i = 0; i < NUM_PUZZLES; i++)
+    // {
+    //     printf("\nPuzzle #%d, ", i);
+    //     for (j = 0; j < OPTIONS; j++)
+    //     {
+    //         if (j != 0)
+    //             printf(", ");
+    //         printf("%ld", (long int)((double)(GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
+    //     }
+    // }
 
-    // Checks to make sure the h_puzzles were solved correctly
-    for (i = 0; i < NUM_PUZZLES; i++)
-    {
-        if (cpu_success[i] != 1)
-        {
-            printf("\nError in solving h_puzzle (CPU): %d", i);
-        }
+    // // Checks to make sure the h_puzzles were solved correctly
+    // for (i = 0; i < NUM_PUZZLES; i++)
+    // {
+    //     if (cpu_success[i] != 1)
+    //     {
+    //         printf("\nError in solving h_puzzle (CPU): %d", i);
+    //     }
 
-        // GPU Case
-    }
+    //     // GPU Case
+    // }
 
-    printf("\n");
+    // printf("\n");
 
     return 0;
 }
+

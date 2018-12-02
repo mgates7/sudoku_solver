@@ -1,14 +1,18 @@
 #ifndef _CPU_FUNCTIONS
 #define _CPU_FUNCTIONS
 
-// CPU Directives
-#define GIG 1000000000
-//#define CPG 2.5 // Cycles per GHz -- Adjust to your computer
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
+#include <time.h>
+#include <math.h>
 
-int cpu_solveSudoku(int h_puzzle[][9]);
-int isValid(int number, int h_puzzle[][9], int row, int column);
-int sudokuHelper(int h_puzzle[][9], int row, int column);
-void printSudoku(int h_puzzle[][9]);
+// Forward declarations of CPU functions
+int cpu_solveSudoku(int *elems);
+int isValid(int number, int *puzzleElem, int row, int column);
+int sudokuHelper(int *puzzleElem, int row, int column);
+void initializePuzzle(int puzzleNum, char *fileName, int *elems);
+void printPuzzle(Puzzle p);
 
 /*
  * Timing structs/functions
@@ -33,16 +37,16 @@ struct timespec diff(struct timespec start, struct timespec end)
 /*
   * A helper function to call sudokuHelper recursively
   */
-int cpu_solveSudoku(int h_puzzle[][9])
+int cpu_solveSudoku(int *elems)
 {
-    return sudokuHelper(h_puzzle, 0, 0);
+    return sudokuHelper(elems, 0, 0);
 }
 
 /*
   * A recursive function that does all the gruntwork in solving
   * the h_puzzle.
   */
-int sudokuHelper(int h_puzzle[][9], int row, int column)
+int sudokuHelper(int *puzzleElem, int row, int column)
 {
     int nextNumber;
     /*
@@ -58,16 +62,16 @@ int sudokuHelper(int h_puzzle[][9], int row, int column)
       * Is this element already set?  If so, we don't want to 
       * change it.
       */
-    if (h_puzzle[row][column])
+    if (puzzleElem[row * 9 + column])
     {
         if (column == 8)
         {
-            if (sudokuHelper(h_puzzle, row + 1, 0))
+            if (sudokuHelper(puzzleElem, row + 1, 0))
                 return 1;
         }
         else
         {
-            if (sudokuHelper(h_puzzle, row, column + 1))
+            if (sudokuHelper(puzzleElem, row, column + 1))
                 return 1;
         }
         return 0;
@@ -80,20 +84,20 @@ int sudokuHelper(int h_puzzle[][9], int row, int column)
       */
     for (nextNumber = 1; nextNumber < 10; nextNumber++)
     {
-        if (isValid(nextNumber, h_puzzle, row, column))
+        if (isValid(nextNumber, puzzleElem, row, column))
         {
-            h_puzzle[row][column] = nextNumber;
+            puzzleElem[row * 9 + column] = nextNumber;
             if (column == 8)
             {
-                if (sudokuHelper(h_puzzle, row + 1, 0))
+                if (sudokuHelper(puzzleElem, row + 1, 0))
                     return 1;
             }
             else
             {
-                if (sudokuHelper(h_puzzle, row, column + 1))
+                if (sudokuHelper(puzzleElem, row, column + 1))
                     return 1;
             }
-            h_puzzle[row][column] = 0;
+            puzzleElem[row * 9 + column] = 0;
         }
     }
     return 0;
@@ -103,7 +107,7 @@ int sudokuHelper(int h_puzzle[][9], int row, int column)
   * Checks to see if a particular value is presently valid in a
   * given position.
   */
-int isValid(int number, int h_puzzle[][9], int row, int column)
+int isValid(int number, int *puzzleElem, int row, int column)
 {
     int i;
     int modRow = 3 * (row / 3);
@@ -116,51 +120,61 @@ int isValid(int number, int h_puzzle[][9], int row, int column)
     /* Check for the value in the given row and column */
     for (i = 0; i < 9; i++)
     {
-        if (h_puzzle[i][column] == number)
+        if (puzzleElem[i * 9 + column] == number)
             return 0;
-        if (h_puzzle[row][i] == number)
+        if (puzzleElem[row * 9 + i] == number)
             return 0;
     }
 
     /* Check the remaining four spaces in this sector */
-    if (h_puzzle[row1 + modRow][col1 + modCol] == number)
+    if (puzzleElem[(row1 + modRow) * 9 + (col1 + modCol)] == number)
         return 0;
-    if (h_puzzle[row2 + modRow][col1 + modCol] == number)
+    if (puzzleElem[(row2 + modRow) * 9 + (col1 + modCol)] == number)
         return 0;
-    if (h_puzzle[row1 + modRow][col2 + modCol] == number)
+    if (puzzleElem[(row1 + modRow) * 9 + (col2 + modCol)] == number)
         return 0;
-    if (h_puzzle[row2 + modRow][col2 + modCol] == number)
+    if (puzzleElem[(row2 + modRow) * 9 + (col2 + modCol)] == number)
         return 0;
     return 1;
 }
 
-/*
-  * Convenience function to print out the h_puzzle.
-  */
-void printSudoku(int h_puzzle[][9])
+void initializePuzzle(int puzzleNum, char *fileName, int *elems)
 {
-    int i = 0, j = 0;
+    char temp_ch;
+    int i, j;
+    long int offset = (puzzleNum * 81) + puzzleNum; // Accounts for "\n" at end of each line in file.
+    FILE *sudokuFile;
+    sudokuFile = fopen(fileName, "r");
+
+    fseek(sudokuFile, offset, SEEK_SET);
+
+    if (sudokuFile == NULL)
+    {
+        printf("Couldn't open test file for reading!");
+        return;
+    }
+
     for (i = 0; i < 9; i++)
     {
         for (j = 0; j < 9; j++)
         {
-            if (2 == j || 5 == j)
-            {
-                printf("%d | ", h_puzzle[i][j]);
-            }
-            else if (8 == j)
-            {
-                printf("%d\n", h_puzzle[i][j]);
-            }
-            else
-            {
-                printf("%d ", h_puzzle[i][j]);
-            }
+            fscanf(sudokuFile, "%c", &temp_ch);
+            *elems = atoi(&temp_ch);
+            elems++;
         }
-        if (2 == i || 5 == i)
+    }
+}
+
+void printPuzzle(Puzzle p)
+{
+    int i, j;
+    for (i = 0; i < 9; i++)
+    {
+        for (j = 0; j < 9; j++)
         {
-            puts("------+-------+------");
+            printf("%d ", p.elements[i * 9 + j]);
         }
+        printf("\n");
     }
 }
 
