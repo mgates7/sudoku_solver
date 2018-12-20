@@ -12,7 +12,7 @@ int cpu_solveSudoku(int *elems);
 int isValid(int number, int *puzzleElem, int row, int column);
 int sudokuHelper(int *puzzleElem, int row, int column);
 void initializePuzzle(int puzzleNum, char *fileName, int *elems);
-void printPuzzle(Puzzle p);
+void printPuzzle(Puzzle p, int type);
 
 /*
  * Timing structs/functions
@@ -165,14 +165,36 @@ void initializePuzzle(int puzzleNum, char *fileName, int *elems)
     }
 }
 
-void printPuzzle(Puzzle p)
+void printPuzzle(Puzzle p, int type)
 {
-    int i, j;
+    int i, j, k;
     for (i = 0; i < 9; i++)
     {
         for (j = 0; j < 9; j++)
         {
-            printf("%d ", p.elements[i * 9 + j]);
+            switch (type)
+            {
+            case 1:
+                printf("%d ", p.elements[i * 9 + j]);
+                break;
+
+            case 2:
+                for (k = 0; k < 9; k++)
+                {
+                    printf("%d ", p.bitmap[i * 81 + j * 9 + k]);
+                }
+                printf("\n");
+                break;
+            case 3:
+                for (k = 0; k < 9; k++)
+                {
+                    printf("%d ", p.isEmpty[i * 81 + j * 9 + k]);
+                }
+                printf("\n");
+                break;
+            default:
+                printf("%d ", p.elements[i * 9 + j]);
+            }
         }
         printf("\n");
     }

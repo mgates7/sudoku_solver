@@ -2,10 +2,10 @@
  * sudokuSolver.cu
  * 
  * Command used for accessing compute node:
- * qrsh -l gpus=1 -l gpu_type=M2070
+ * qrsh -l gpus=1 -l gpu_c=3.5
  *
  * Command for compiling:
- * nvcc sudokuSolver.cu -o sudokuSolver
+ * nvcc -arch compute_35 -rdc=true -lcudadevrt sudokuSolver.cu -o sudokuSolver
  *
  *
  * Author: Maxwell Gates
@@ -36,9 +36,11 @@
 // Sudoku specific
 typedef struct
 {
-    int *elements;
-    bool *bitmap;
-    bool *isempty;
+    int *elements;           // CPU & GPU
+    bool *bitmap;            // GPU
+    bool *isEmpty;           // GPU
+    int *num_solutionBoards; // GPU
+    bool *solutionBoards; // GPU
 } Puzzle;
 
 #include "cpu_functions.cuh"
@@ -51,6 +53,10 @@ int main(int argc, char **argv)
     struct timespec time1, time2;
     struct timespec time_stamp[OPTIONS][NUM_PUZZLES + 1];
     int clock_gettime(clockid_t clk_id, struct timespec * tp);
+
+    size_t allocSizeElem = N * N * sizeof(int);        // NUM_PUZZLES * PUZZLE_SIZE * sizeof(int)
+    size_t allocSizeBool = N * (N * N) * sizeof(bool); // N sets of NxN bool matrices
+    size_t allocSizeInt = sizeof(int);
 
     // GPU Timing variables
     cudaEvent_t start, stop;
@@ -71,20 +77,29 @@ int main(int argc, char **argv)
     OPTION = 0;
     for (puzzleNum = 0; puzzleNum < NUM_PUZZLES; puzzleNum++)
     {
+
+        // Allocate arrays on host memory
+        h_puzzle.elements = (int *)malloc(allocSizeElem);
+        h_puzzle.bitmap = (bool *)malloc(allocSizeBool);
+        h_puzzle.isEmpty = (bool *)malloc(allocSizeBool);
+        h_puzzle.num_solutionBoards = (int *)malloc(allocSizeInt);
+
         // Initialize host puzzle
         initializePuzzle(puzzleNum, fileName, h_puzzle.elements);
-
-        //printPuzzle(h_puzzle);
+        *h_puzzle.num_solutionBoards = 0;
 
         // Select GPU
         CUDA_SAFE_CALL(cudaSetDevice(0));
 
         // Allocate GPU memory
-        size_t allocSize = N * N * sizeof(int); // NUM_PUZZLES * PUZZLE_SIZE * sizeof(int)
-        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.elements, allocSize));
+        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.elements, allocSizeElem));
+        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.bitmap, allocSizeBool));
+        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.isEmpty, allocSizeBool));
+        CUDA_SAFE_CALL(cudaMalloc(&d_puzzle.num_solutionBoards, allocSizeInt));
 
         // Transfer the unsolved puzzle to GPU memory
-        CUDA_SAFE_CALL(cudaMemcpy(d_puzzle.elements, h_puzzle.elements, allocSize, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(d_puzzle.elements, h_puzzle.elements, allocSizeElem, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(d_puzzle.num_solutionBoards, h_puzzle.num_solutionBoards, allocSizeInt, cudaMemcpyHostToDevice));
 
         printf("\nSolving Puzzle #%d (CPU)\n", puzzleNum);
 
@@ -93,15 +108,18 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
         time_stamp[OPTION][puzzleNum] = diff(time1, time2);
 
-        //printPuzzle(d_puzzle);
+        //printPuzzle(d_puzzle,1);
 
         OPTION++;
         // Call CUDA Kernel
         printf("Solving Puzzle #%d (GPU)\n\n", puzzleNum);
 
-        // PHASE I thread/block hierarchy
-        dim3 threadsPerBlock(9, 9); // 9x9 Puzzle
-        dim3 blocksPerGrid(9);
+        // Thread/block hierarchy for each phase
+        dim3 threadsPerBlock_1(N, N); // NxN Puzzle
+        dim3 blocksPerGrid_1(N);
+
+        dim3 threadsPerBlock_2(N, N); // NxN Puzzle
+        dim3 blocksPerGrid_2(N);
 
         // Create the cuda events
         cudaEventCreate(&start);
@@ -111,17 +129,37 @@ int main(int argc, char **argv)
         cudaEventRecord(start, 0);
 
         // Set bitmaps and isEmpty arrays
-        bitmapSet<<<blocksPerGrid, threadsPerBlock>>>(d_puzzle);
+        bitmapSet<<<blocksPerGrid_1, threadsPerBlock_1>>>(d_puzzle);    // PHASE I
+        cudaDeviceSetLimit(cudaLimitMallocHeapSize, 256 * 1024 * 1024); // Set aside 512 MB heap for solution boards (PHASE II).
+        //for (i = 0; i < 9; i++) // Find solution boards for each 'number'
+        findSolutionBoards<<<blocksPerGrid_2, threadsPerBlock_2>>>(d_puzzle, d_puzzle.bitmap, d_puzzle.isEmpty, 0); // PHASE II
 
         cudaEventRecord(stop, 0);
+
+        cudaDeviceSynchronize();
 
         // Check for errors during launch
         CUDA_SAFE_CALL(cudaPeekAtLastError());
 
         // Transfer the results back to the host
-        CUDA_SAFE_CALL(cudaMemcpy(h_puzzle, d_puzzle, allocSize, cudaMemcpyDeviceToHost));
+        CUDA_SAFE_CALL(cudaMemcpy(h_puzzle.elements, d_puzzle.elements, allocSizeElem, cudaMemcpyDeviceToHost));
+        CUDA_SAFE_CALL(cudaMemcpy(h_puzzle.bitmap, d_puzzle.bitmap, allocSizeBool, cudaMemcpyDeviceToHost));
+        CUDA_SAFE_CALL(cudaMemcpy(h_puzzle.isEmpty, d_puzzle.isEmpty, allocSizeBool, cudaMemcpyDeviceToHost));
+        CUDA_SAFE_CALL(cudaMemcpy(h_puzzle.num_solutionBoards, d_puzzle.num_solutionBoards, allocSizeInt, cudaMemcpyDeviceToHost));
 
-        cudaFree(d_puzzle);
+        printf("%d\n", *h_puzzle.num_solutionBoards);
+
+        // printPuzzle(h_puzzle,1);
+
+        cudaFree(d_puzzle.elements);
+        cudaFree(d_puzzle.bitmap);
+        cudaFree(d_puzzle.isEmpty);
+        cudaFree(d_puzzle.num_solutionBoards);
+
+        free(h_puzzle.elements);
+        free(h_puzzle.bitmap);
+        free(h_puzzle.isEmpty);
+        free(h_puzzle.num_solutionBoards);
 
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&elapsed_gpu, start, stop);
@@ -161,4 +199,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
